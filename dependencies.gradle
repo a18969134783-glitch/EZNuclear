@@ -48,6 +48,7 @@ dependencies {
 
     annotationProcessor('com.google.auto.value:auto-value:1.10.1')
     implementation('com.google.auto.value:auto-value-annotations:1.10.1')
+    implementation ("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 
 
     configurations.configureEach {

@@ -6,10 +6,11 @@
   "compatibilityLevel": "JAVA_8",
   "mixins": [
     "ProcessHandlerMixin",
-    "TileReactorCoreMixin"
+    "TileReactorCoreMixin",
+    "IC2ExplosionMixin"
   ],
   "client": [],
-  "server": ["TileReactorCoreMixin"],
+  "server": ["TileReactorCoreMixin","IC2ExplosionMixin"],
   "injectors": {
     "defaultRequire": 1
   }

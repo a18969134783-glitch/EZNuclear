@@ -1,7 +1,5 @@
 package com.czqwq.EZNuclear.mixin;
 
-import static com.dreammaster.main.MainRegistry.Logger;
-
 import java.lang.reflect.Method;
 import java.util.List;
 
