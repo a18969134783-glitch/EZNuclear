@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.brandon3055.brandonscore.common.handlers.IProcess;
 import com.brandon3055.brandonscore.common.handlers.ProcessHandler;
+import com.czqwq.EZNuclear.Config;
 import com.czqwq.EZNuclear.data.PendingMeltdown;
 
 @Mixin(ProcessHandler.class)
@@ -29,6 +30,12 @@ public class ProcessHandlerMixin {
             Class<?> cls = process.getClass();
             String name = cls.getName();
             if (!name.endsWith("ReactorExplosion")) return;
+
+            // Check if DE explosions are disabled in config
+            if (!Config.DEExplosion) {
+                ci.cancel();
+                return;
+            }
 
             // try to get x,y,z
             Field xf = cls.getDeclaredField("x");

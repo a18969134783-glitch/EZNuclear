@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.brandon3055.draconicevolution.common.tileentities.multiblocktiles.reactor.TileReactorCore;
+import com.czqwq.EZNuclear.Config;
 import com.czqwq.EZNuclear.data.PendingMeltdown;
 
 import gregtech.api.util.GTUtility;
@@ -27,6 +28,12 @@ public abstract class TileReactorCoreMixin {
 
     @Inject(method = "goBoom", remap = false, at = @At("HEAD"), cancellable = true)
     private void onGoBoom(CallbackInfo ci) {
+        // Check if DE explosions are disabled in config
+        if (!Config.DEExplosion) {
+            ci.cancel();
+            return;
+        }
+
         TileEntity te = (TileEntity) (Object) this;
         ChunkCoordinates pos = new ChunkCoordinates(te.xCoord, te.yCoord, te.zCoord);
 

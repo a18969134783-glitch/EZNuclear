@@ -13,6 +13,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.czqwq.EZNuclear.Config;
+
 import cpw.mods.fml.common.FMLCommonHandler;
 
 @Mixin(value = ic2.core.ExplosionIC2.class, remap = false)
@@ -35,6 +37,12 @@ public class IC2ExplosionMixin {
 
     @Inject(method = "doExplosion", at = @At("HEAD"), cancellable = true)
     private void onDoExplosion(CallbackInfo ci) {
+        // Check if IC2 explosions are disabled in config
+        if (!Config.IC2Explosion) {
+            ci.cancel();
+            return;
+        }
+        
         // If this is the deferred invocation, allow it to proceed once
         if (eznuclear_ignoreNext) {
             eznuclear_ignoreNext = false;

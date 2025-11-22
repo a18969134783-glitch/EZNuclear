@@ -2,6 +2,7 @@ package com.czqwq.EZNuclear.mixin;
 
 import java.lang.reflect.Field;
 
+import com.brandon3055.draconicevolution.common.tileentities.multiblocktiles.reactor.ReactorExplosion;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.World;
 
@@ -13,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.brandon3055.brandonscore.common.handlers.ProcessHandler;
-import com.brandon3055.draconicevolution.common.tileentities.multiblocktiles.reactor.ReactorExplosion;
+import com.czqwq.EZNuclear.Config;
 import com.czqwq.EZNuclear.data.PendingMeltdown;
 
 @Mixin(ReactorExplosion.class)
@@ -25,6 +26,12 @@ public abstract class ReactorExplosionMixin {
     // Using an array makes the injector tolerant to either name at runtime.
     @Inject(method = { "run", "onRun" }, at = @At("HEAD"), cancellable = true, remap = false)
     private void onRun(CallbackInfo ci) {
+        // Check if DE explosions are disabled in config
+        if (!Config.DEExplosion) {
+            ci.cancel();
+            return;
+        }
+
         try {
             LOGGER.info(
                 "ReactorExplosion.run intercepted for instance: {}",
