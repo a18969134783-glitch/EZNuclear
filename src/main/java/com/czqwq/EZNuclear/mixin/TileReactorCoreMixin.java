@@ -30,6 +30,71 @@ public abstract class TileReactorCoreMixin {
     private void onGoBoom(CallbackInfo ci) {
         // Check if DE explosions are disabled in config
         if (!Config.DEExplosion) {
+            // Even if explosion is disabled, still send the message to players
+            MinecraftServer server = MinecraftServer.getServer();
+            if (server != null) {
+                if (!server.isSinglePlayer()) {
+                    List<EntityPlayerMP> players = server.getConfigurationManager().playerEntityList;
+                    for (EntityPlayerMP p : players) {
+                        GTUtility.sendChatToPlayer(p, StatCollector.translateToLocal("info.ezunclear"));
+                    }
+                } else {
+                    // For single player, try to send message to client
+                    try {
+                        Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+                        Object mc = mcClass.getMethod("getMinecraft")
+                            .invoke(null);
+                        Object thePlayer = mcClass.getField("thePlayer")
+                            .get(mc);
+                        if (thePlayer != null) {
+                            Class<?> chatClass = Class.forName("net.minecraft.util.ChatComponentTranslation");
+                            Object chat = chatClass.getConstructor(String.class, Object[].class)
+                                .newInstance(new Object[] { "info.ezunclear", new Object[0] });
+                            Class<?> iChatClass = Class.forName("net.minecraft.util.IChatComponent");
+                            thePlayer.getClass()
+                                .getMethod("addChatMessage", iChatClass)
+                                .invoke(thePlayer, chat);
+                        }
+                    } catch (Throwable t) {
+                        // Reflection failed, skipping client chat message
+                    }
+                }
+
+                // Schedule the second message after 5 seconds
+                PendingMeltdown.schedule(new ChunkCoordinates(0, 0, 0), () -> {
+                    MinecraftServer srv = MinecraftServer.getServer();
+                    if (srv != null) {
+                        if (!srv.isSinglePlayer()) {
+                            List<EntityPlayerMP> players = srv.getConfigurationManager().playerEntityList;
+                            for (EntityPlayerMP p : players) {
+                                GTUtility.sendChatToPlayer(
+                                    p,
+                                    StatCollector.translateToLocal("info.ezunclear.preventexplosion"));
+                            }
+                        } else {
+                            try {
+                                Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+                                Object mc = mcClass.getMethod("getMinecraft")
+                                    .invoke(null);
+                                Object thePlayer = mcClass.getField("thePlayer")
+                                    .get(mc);
+                                if (thePlayer != null) {
+                                    Class<?> chatClass = Class.forName("net.minecraft.util.ChatComponentTranslation");
+                                    Object chat = chatClass.getConstructor(String.class, Object[].class)
+                                        .newInstance(new Object[] { "info.ezunclear.preventexplosion", new Object[0] });
+                                    Class<?> iChatClass = Class.forName("net.minecraft.util.IChatComponent");
+                                    thePlayer.getClass()
+                                        .getMethod("addChatMessage", iChatClass)
+                                        .invoke(thePlayer, chat);
+                                }
+                            } catch (Throwable t) {
+                                // Reflection failed, skipping client chat message
+                            }
+                        }
+                    }
+                }, 5000L);
+            }
+
             ci.cancel();
             return;
         }
