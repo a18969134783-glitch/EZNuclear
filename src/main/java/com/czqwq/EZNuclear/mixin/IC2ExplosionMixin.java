@@ -23,15 +23,18 @@ import net.minecraftforge.event.ServerChatEvent;
 public class IC2ExplosionMixin {
 
     @Unique
-    private static final ScheduledExecutorService SCHEDULER = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "EZNuclear-IC2ExplosionScheduler");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final ScheduledExecutorService SCHEDULER =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "EZNuclear-IC2ExplosionScheduler");
+                t.setDaemon(true);
+                return t;
+            });
 
     static {
         System.out.println("[EZNuclear] IC2ExplosionMixin loaded");
-        FMLCommonHandler.instance().bus().register(new ChatTriggerListener());
+        FMLCommonHandler.instance()
+                .bus()
+                .register(new ChatTriggerListener());
     }
 
     // 原作者逻辑的标志位：允许延迟爆炸通过一次
@@ -53,21 +56,21 @@ public class IC2ExplosionMixin {
         // 聊天触发模式
         if (Config.RequireChatTrigger) {
             ci.cancel();
-            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+            MinecraftServer server = FMLCommonHandler.instance()
+                    .getMinecraftServerInstance();
 
             // 延迟 5 秒后检查是否触发
             SCHEDULER.schedule(() -> {
                 if (eznuclear_triggerExplosion) {
                     try {
-                        ((ic2.core.ExplosionIC2)(Object)this).doExplosion();
+                        ((ic2.core.ExplosionIC2) (Object) this).doExplosion();
                     } catch (Throwable t) {
                         t.printStackTrace();
                     }
                 } else {
                     if (server != null) {
-                        server.getConfigurationManager().sendChatMsg(
-                            new ChatComponentTranslation("§a爆炸已被取消！")
-                        );
+                        server.getConfigurationManager()
+                                .sendChatMsg(new ChatComponentTranslation("§a爆炸已被取消！"));
                     }
                 }
                 eznuclear_triggerExplosion = false;
@@ -82,11 +85,13 @@ public class IC2ExplosionMixin {
             return;
         }
 
-        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        MinecraftServer server = FMLCommonHandler.instance()
+                .getMinecraftServerInstance();
         if (server == null) return;
 
         try {
-            server.getConfigurationManager().sendChatMsg(new ChatComponentTranslation("info.ezunclear"));
+            server.getConfigurationManager()
+                    .sendChatMsg(new ChatComponentTranslation("info.ezunclear"));
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -94,10 +99,12 @@ public class IC2ExplosionMixin {
         ci.cancel();
 
         SCHEDULER.schedule(() -> {
-            MinecraftServer s = FMLCommonHandler.instance().getMinecraftServerInstance();
+            MinecraftServer s = FMLCommonHandler.instance()
+                    .getMinecraftServerInstance();
             if (s != null) {
                 try {
-                    s.getConfigurationManager().sendChatMsg(new ChatComponentTranslation("info.ezunclear.interact"));
+                    s.getConfigurationManager()
+                            .sendChatMsg(new ChatComponentTranslation("info.ezunclear.interact"));
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
@@ -105,7 +112,7 @@ public class IC2ExplosionMixin {
                 eznuclear_ignoreNext = true;
 
                 try {
-                    ((ic2.core.ExplosionIC2)(Object)this).doExplosion();
+                    ((ic2.core.ExplosionIC2) (Object) this).doExplosion();
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
