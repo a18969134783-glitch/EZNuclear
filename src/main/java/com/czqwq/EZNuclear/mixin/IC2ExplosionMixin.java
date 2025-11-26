@@ -1,14 +1,11 @@
 package com.czqwq.EZNuclear.mixin;
 
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.StatCollector;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -19,7 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.czqwq.EZNuclear.Config;
 
 import cpw.mods.fml.common.FMLCommonHandler;
-import gregtech.api.util.GTUtility;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.event.ServerChatEvent;
 
 @Mixin(value = ic2.core.ExplosionIC2.class, remap = false)
 public class IC2ExplosionMixin {
@@ -33,130 +31,96 @@ public class IC2ExplosionMixin {
 
     static {
         System.out.println("[EZNuclear] IC2ExplosionMixin loaded");
+        FMLCommonHandler.instance().bus().register(new ChatTriggerListener());
     }
 
-    // Flag to allow the deferred explosion to run once without being re-cancelled
+    // 原作者逻辑的标志位：允许延迟爆炸通过一次
     @Unique
     private volatile boolean eznuclear_ignoreNext = false;
 
+    // 聊天触发模式的标志位
+    @Unique
+    private static volatile boolean eznuclear_triggerExplosion = false;
+
     @Inject(method = "doExplosion", at = @At("HEAD"), cancellable = true)
     private void onDoExplosion(CallbackInfo ci) {
-        // Check if IC2 explosions are disabled in config
+        // 如果禁用 IC2 爆炸，直接取消
         if (!Config.IC2Explosion) {
-            // Even if explosion is disabled, still send the message to players
-            MinecraftServer server = FMLCommonHandler.instance()
-                .getMinecraftServerInstance();
-            if (server != null) {
-                if (!server.isSinglePlayer()) {
-                    List<EntityPlayerMP> players = server.getConfigurationManager().playerEntityList;
-                    for (EntityPlayerMP p : players) {
-                        GTUtility.sendChatToPlayer(p, StatCollector.translateToLocal("info.ezunclear"));
-                    }
-                } else {
-                    // For single player, try to send message to client
-                    try {
-                        Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-                        Object mc = mcClass.getMethod("getMinecraft")
-                            .invoke(null);
-                        Object thePlayer = mcClass.getField("thePlayer")
-                            .get(mc);
-                        if (thePlayer != null) {
-                            Class<?> chatClass = Class.forName("net.minecraft.util.ChatComponentTranslation");
-                            Object chat = chatClass.getConstructor(String.class, Object[].class)
-                                .newInstance(new Object[] { "info.ezunclear", new Object[0] });
-                            Class<?> iChatClass = Class.forName("net.minecraft.util.IChatComponent");
-                            thePlayer.getClass()
-                                .getMethod("addChatMessage", iChatClass)
-                                .invoke(thePlayer, chat);
-                        }
-                    } catch (Throwable t) {
-                        // Reflection failed, skipping client chat message
-                    }
-                }
-
-                // Schedule the second message after 5 seconds
-                SCHEDULER.schedule(() -> {
-                    MinecraftServer srv = FMLCommonHandler.instance()
-                        .getMinecraftServerInstance();
-                    if (srv != null) {
-                        if (!srv.isSinglePlayer()) {
-                            List<EntityPlayerMP> players = srv.getConfigurationManager().playerEntityList;
-                            for (EntityPlayerMP p : players) {
-                                GTUtility.sendChatToPlayer(
-                                    p,
-                                    StatCollector.translateToLocal("info.ezunclear.preventexplosion"));
-                            }
-                        } else {
-                            try {
-                                Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-                                Object mc = mcClass.getMethod("getMinecraft")
-                                    .invoke(null);
-                                Object thePlayer = mcClass.getField("thePlayer")
-                                    .get(mc);
-                                if (thePlayer != null) {
-                                    Class<?> chatClass = Class.forName("net.minecraft.util.ChatComponentTranslation");
-                                    Object chat = chatClass.getConstructor(String.class, Object[].class)
-                                        .newInstance(new Object[] { "info.ezunclear.preventexplosion", new Object[0] });
-                                    Class<?> iChatClass = Class.forName("net.minecraft.util.IChatComponent");
-                                    thePlayer.getClass()
-                                        .getMethod("addChatMessage", iChatClass)
-                                        .invoke(thePlayer, chat);
-                                }
-                            } catch (Throwable t) {
-                                // Reflection failed, skipping client chat message
-                            }
-                        }
-                    }
-                }, 5L, TimeUnit.SECONDS);
-            }
-
             ci.cancel();
             return;
         }
 
-        // If this is the deferred invocation, allow it to proceed once
+        // 聊天触发模式
+        if (Config.RequireChatTrigger) {
+            ci.cancel();
+            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+
+            // 延迟 5 秒后检查是否触发
+            SCHEDULER.schedule(() -> {
+                if (eznuclear_triggerExplosion) {
+                    try {
+                        ((ic2.core.ExplosionIC2)(Object)this).doExplosion();
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                    }
+                } else {
+                    if (server != null) {
+                        server.getConfigurationManager().sendChatMsg(
+                            new ChatComponentTranslation("§a爆炸已被取消！")
+                        );
+                    }
+                }
+                eznuclear_triggerExplosion = false;
+            }, 5L, TimeUnit.SECONDS);
+
+            return;
+        }
+
+        // ===== 原作者逻辑 =====
         if (eznuclear_ignoreNext) {
             eznuclear_ignoreNext = false;
             return;
         }
 
-        // Only run on server side -- use server global instead of shadowing world
-        MinecraftServer server = FMLCommonHandler.instance()
-            .getMinecraftServerInstance();
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server == null) return;
 
-        // Send initial message to players (run on server thread directly)
         try {
-            server.getConfigurationManager()
-                .sendChatMsg(new ChatComponentTranslation("info.ezunclear"));
+            server.getConfigurationManager().sendChatMsg(new ChatComponentTranslation("info.ezunclear"));
         } catch (Throwable t) {
             t.printStackTrace();
         }
 
-        // Cancel immediate explosion and schedule the real one after 5 seconds
         ci.cancel();
 
         SCHEDULER.schedule(() -> {
-            MinecraftServer s = FMLCommonHandler.instance()
-                .getMinecraftServerInstance();
+            MinecraftServer s = FMLCommonHandler.instance().getMinecraftServerInstance();
             if (s != null) {
                 try {
-                    s.getConfigurationManager()
-                        .sendChatMsg(new ChatComponentTranslation("info.ezunclear.interact"));
+                    s.getConfigurationManager().sendChatMsg(new ChatComponentTranslation("info.ezunclear.interact"));
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
 
-                // Set flag so the next doExplosion invocation is allowed through
                 eznuclear_ignoreNext = true;
 
-                // Invoke the original method on the target instance
                 try {
-                    ((ic2.core.ExplosionIC2) (Object) this).doExplosion();
+                    ((ic2.core.ExplosionIC2)(Object)this).doExplosion();
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
             }
         }, 5L, TimeUnit.SECONDS);
+    }
+
+    // 聊天监听器
+    public static class ChatTriggerListener {
+        @SubscribeEvent
+        public void onPlayerChat(ServerChatEvent event) {
+            if ("坏了坏了".equals(event.message.trim())) {
+                eznuclear_triggerExplosion = true;
+                event.player.addChatMessage(new ChatComponentTranslation("§c爆炸已被触发！"));
+            }
+        }
     }
 }
